@@ -4,7 +4,7 @@ import { allDeals } from "./expand";
 /** 一次推薦最多能用幾張「買套餐送X」券。客戶給的規則。 */
 export const MAX_MEAL_GIFT = 3;
 
-/** 超過這個品項數就改用貪婪法：窮舉的切法數是貝爾數，8 個就 4,140 種、15 個 13.8 億種。 */
+/** 超過這麼多「份」就改用貪婪法：窮舉的切法數是貝爾數，8 份就 4,140 種、15 份 13.8 億種。 */
 const EXACT_LIMIT = 6;
 
 export type Mode = "cheapest" | "biggest";
@@ -36,10 +36,22 @@ function cmp(a: number[], b: number[]): number {
   return 0;
 }
 
+/** 一串「份」（同一個品項要兩份就出現兩次）數成 品項 → 份數。 */
+function countBy(units: string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const i of units) m.set(i, (m.get(i) ?? 0) + 1);
+  return m;
+}
+
 export interface Pool {
   deals: Deal[];
   /** product_id → 含有該商品的方案索引，交集用。 */
   inv: Map<string, Set<number>>;
+  /**
+   * 每筆方案各商品的份數。買一送一那張券的大薯份數是 2，
+   * 所以使用者要兩份大薯時，一張券就夠了。
+   */
+  qty: Map<string, number>[];
 }
 
 /**
@@ -54,27 +66,32 @@ export function buildPool(slot: Slot): Pool {
     (d) => d.min_spend === null && (d.availability === "ALL_DAY" || d.availability === slot),
   );
   const inv = new Map<string, Set<number>>();
+  const qty: Map<string, number>[] = [];
   deals.forEach((d, n) => {
+    const q = new Map<string, number>();
+    for (const it of d.items) q.set(it.product_id, (q.get(it.product_id) ?? 0) + it.qty);
+    qty.push(q);
     for (const i of d.product_ids) {
       let s = inv.get(i);
       if (!s) inv.set(i, (s = new Set()));
       s.add(n);
     }
   });
-  return { deals, inv };
+  return { deals, inv, qty };
 }
 
-/** 這一組品項有哪些方案同時涵蓋。 */
+/** 這一組「份」有哪些方案一次全部涵蓋得到（份數也要夠）。 */
 function candidates(pool: Pool, group: string[]): number[] {
-  let s = pool.inv.get(group[0]);
-  if (!s) return [];
-  let acc = [...s];
-  for (const i of group.slice(1)) {
+  const need = countBy(group);
+  const keys = [...need.keys()];
+  let acc = [...(pool.inv.get(keys[0]) ?? [])];
+  for (const i of keys.slice(1)) {
     const t = pool.inv.get(i);
     if (!t) return [];
     acc = acc.filter((n) => t.has(n));
   }
-  return acc;
+  return acc.filter((n) =>
+    keys.every((i) => (pool.qty[n].get(i) ?? 0) >= need.get(i)!));
 }
 
 function bestOf(pool: Pool, idx: number[], mode: Mode, skipMealGift = false): Deal | null {
@@ -88,7 +105,7 @@ function bestOf(pool: Pool, idx: number[], mode: Mode, skipMealGift = false): De
   return best;
 }
 
-/** 把品項切成幾組，每組派一張券。品項少時窮舉，多了會爆炸。 */
+/** 把「份」切成幾組，每組派一張券。份數少時窮舉，多了會爆炸。 */
 function* partitions(items: string[]): Generator<string[][]> {
   if (!items.length) { yield []; return; }
   const [first, ...rest] = items;
@@ -99,13 +116,13 @@ function* partitions(items: string[]): Generator<string[][]> {
   }
 }
 
-function exact(pool: Pool, want: string[], mode: Mode): Deal[] | null {
+function exact(pool: Pool, units: string[], mode: Mode): Deal[] | null {
   let best: { cand: number[]; ds: Deal[] } | null = null;
   const memo = new Map<string, { best: Deal | null; alt: Deal | null }>();
 
-  for (const part of partitions(want)) {
+  for (const part of partitions(units)) {
     const picks = part.map((g) => {
-      const key = g.join(",");
+      const key = [...g].sort().join(",");
       let m = memo.get(key);
       if (!m) {
         const idx = candidates(pool, g);
@@ -135,36 +152,44 @@ function exact(pool: Pool, want: string[], mode: Mode): Deal[] | null {
 }
 
 /**
- * 每次挑「還沒被涵蓋的品項裡能一次蓋掉最多的」那張券，挑到不能再挑為止。
+ * 每次挑「還沒湊齊的份數裡能一次補最多的」那張券，挑到不能再挑為止。
  *
- * 品項多到窮舉不動時用它求解，窮舉無解時也用它退而求其次 ——
+ * 份數多到窮舉不動時用它求解，窮舉無解時也用它退而求其次 ——
  * 大部分主餐（大麥克、BLT 系列、松露黑堡系列…）只出現在「買套餐送X」的券裡，
- * 一次最多 3 張的規則會讓「選了 4 個以上這種主餐」變成真的湊不齊。
- * 這時給部分解比給空白有用，沒蓋到的品項另外回報。
+ * 一次最多 3 張的規則會讓「選了 4 份以上這種主餐」變成真的湊不齊。
+ * 這時給部分解比給空白有用，沒補到的份數另外回報。
  */
 function greedy(
-  pool: Pool, want: string[], mode: Mode,
+  pool: Pool, units: string[], mode: Mode,
 ): { picked: Deal[]; left: string[] } {
-  const left = new Set(want);
+  const need = countBy(units);
   const picked: Deal[] = [];
-  const relevant = [...new Set(want.flatMap((i) => [...(pool.inv.get(i) ?? [])]))];
+  const relevant = [...new Set(units.flatMap((i) => [...(pool.inv.get(i) ?? [])]))];
 
-  while (left.size) {
-    let best: Deal | null = null, bestKey: number[] = [], bestCov: string[] = [];
+  for (;;) {
     const mgUsed = picked.filter((d) => d.offer_type === "MEAL_GIFT").length;
+    let best: Deal | null = null, bestKey: number[] = [], bestN = -1;
     for (const n of relevant) {
       const d = pool.deals[n];
       if (d.offer_type === "MEAL_GIFT" && mgUsed >= MAX_MEAL_GIFT) continue;
-      const cov = d.product_ids.filter((i) => left.has(i));
-      if (!cov.length) continue;
-      const k = [-cov.length, ...KEY[mode](d)]; // 先蓋最多，再比好壞
-      if (!best || cmp(k, bestKey) < 0) { best = d; bestKey = k; bestCov = cov; }
+      let cov = 0;
+      for (const [i, want] of need) cov += Math.min(want, pool.qty[n].get(i) ?? 0);
+      if (!cov) continue;
+      const k = [-cov, ...KEY[mode](d)]; // 先補最多，再比好壞
+      if (!best || cmp(k, bestKey) < 0) { best = d; bestKey = k; bestN = n; }
     }
     if (!best) break; // 受 3 張上限所限，剩下的湊不進來了
     picked.push(best);
-    for (const i of bestCov) left.delete(i);
+    for (const [i, want] of [...need]) {
+      const got = Math.min(want, pool.qty[bestN].get(i) ?? 0);
+      if (got >= want) need.delete(i);
+      else if (got) need.set(i, want - got);
+    }
+    if (!need.size) break;
   }
-  return { picked, left: [...left] };
+  const left: string[] = [];
+  for (const [i, n] of need) for (let k = 0; k < n; k++) left.push(i);
+  return { picked, left };
 }
 
 const wrap = (ds: Deal[]): Bundle => ({
@@ -180,27 +205,28 @@ export interface Result {
   same_pick: boolean;
   cheapest: Bundle | null;
   biggest: Bundle | null;
-  /** 這個時段完全沒有任何券涵蓋得到的品項。 */
+  /** 這個時段完全沒有任何券涵蓋得到的品項（不重複）。 */
   uncovered: string[];
-  /** 有券可用，但受「最多 3 張買套餐送X券」所限而擠不進來的品項。 */
+  /** 有券可用，但受「最多 3 張買套餐送X券」所限而擠不進來的份（同品項可能出現多次）。 */
   dropped: string[];
   usedGreedy: boolean;
 }
 
 function solveOne(
-  pool: Pool, want: string[], mode: Mode, useGreedy: boolean,
+  pool: Pool, units: string[], mode: Mode, useGreedy: boolean,
 ): { ds: Deal[] | null; left: string[] } {
   if (!useGreedy) {
-    const e = exact(pool, want, mode);
+    const e = exact(pool, units, mode);
     if (e) return { ds: e, left: [] };
   }
-  const g = greedy(pool, want, mode); // 窮舉無解就退到部分解
+  const g = greedy(pool, units, mode); // 窮舉無解就退到部分解
   return { ds: g.picked.length ? g.picked : null, left: g.left };
 }
 
-export function recommend(pool: Pool, want: string[]): Result {
-  const uncovered = want.filter((i) => !pool.inv.get(i)?.size);
-  const solvable = want.filter((i) => !uncovered.includes(i));
+/** `units` 是「份」的清單，同一個品項要兩份就出現兩次。 */
+export function recommend(pool: Pool, units: string[]): Result {
+  const uncovered = [...new Set(units.filter((i) => !pool.inv.get(i)?.size))];
+  const solvable = units.filter((i) => !uncovered.includes(i));
   const usedGreedy = solvable.length > EXACT_LIMIT;
 
   const c = solvable.length

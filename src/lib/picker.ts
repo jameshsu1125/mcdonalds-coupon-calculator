@@ -37,34 +37,12 @@ export function availableProducts(slot: Slot): Product[] {
   return [...ids].map((i) => PRODUCTS.get(i)!).filter(Boolean);
 }
 
-/** Fisher-Yates，用傳進來的亂數來源。 */
-function shuffle<T>(arr: T[], rnd: () => number): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/**
- * 隨機抽 n 個不重複的品項，三區都要有。
- * 先各區抽到保底數量，剩下的名額再從全部裡面補。
- */
-export function randomPick(slot: Slot, n = 15): Product[] {
-  const pool = availableProducts(slot);
-  const byGroup: Record<Group, Product[]> = { main: [], side: [], drink: [] };
-  for (const p of pool) byGroup[groupOf(p)].push(p);
-
-  const rnd = () => Math.random();
-  const quota: Record<Group, number> = { main: 6, side: 4, drink: 5 };
-  const picked: Product[] = [];
-  for (const g of GROUPS) {
-    picked.push(...shuffle(byGroup[g], rnd).slice(0, Math.min(quota[g], byGroup[g].length)));
-  }
-  if (picked.length < n) {
-    const taken = new Set(picked.map((p) => p.id));
-    picked.push(...shuffle(pool, rnd).filter((p) => !taken.has(p.id)).slice(0, n - picked.length));
-  }
-  return picked.slice(0, n);
+/** 同一區裡照類別、再照價格排，讓相似的東西排在一起。 */
+export function sortForDisplay(items: Product[]): Product[] {
+  return [...items].sort(
+    (a, b) =>
+      a.category.localeCompare(b.category) ||
+      (a.price ?? 0) - (b.price ?? 0) ||
+      a.name.localeCompare(b.name, "zh-Hant"),
+  );
 }
