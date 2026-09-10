@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/components/resultcard.tsx","./src/lib/expand.ts","./src/lib/picker.ts","./src/lib/recommend.ts","./src/lib/types.ts","./scripts/smoke.ts","./scripts/verify-expand.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/resultcard.tsx","./src/lib/expand.ts","./src/lib/picker.ts","./src/lib/recommend.ts","./src/lib/types.ts","./scripts/cap.ts","./scripts/case.ts","./scripts/case2.ts","./scripts/count.ts","./scripts/smoke.ts","./scripts/verify-expand.ts"],"version":"5.9.3"}
