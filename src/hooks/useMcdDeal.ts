@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import raw from './data.json'
+import { solve, type SolverDeal } from './solver'
 import type {
   McdButton, McdData, McdDeal, McdResult, Objective, TimeSlot, UseMcdDeal,
   UseMcdDealOptions,
@@ -72,19 +73,21 @@ export function useMcdDeal(options: UseMcdDealOptions = {}): UseMcdDeal {
 
   const result = useMemo<McdResult | null>(() => {
     if (!canSubmit) return null
-    const key = `${timeSlot}:${[...selected].sort().join(',')}`
-    const hit = DATA.lookup[objective][key]
-    if (!hit) throw new Error(`lookup miss: ${key} (${objective})`)
+    // 即時求解（web/src/hooks/solver.ts，scripts/solver.py 的忠實移植），
+    // 取代舊版的 lookup 表查詢——data.json 不再內嵌 12,922 x 3 筆預算好
+    // 的答案，改成幾毫秒內在瀏覽器裡算出來。DATA.deals 的形狀是
+    // SolverDeal 的超集合（多帶 title/priceMax 給畫面用），可以直接傳。
+    const hit = solve(timeSlot, selected, DATA.deals as SolverDeal[], objective)
     const byId = new Map(buttons.map(b => [b.id, b]))
     return {
-      savingsFrom: hit.s,
-      itemCount: hit.n,
-      priceFrom: hit.p,
-      // 注意：hit.d 是「含重複」的多重集合（星級點／甜心卡可重複兌換），
-      // 這裡逐一 map、不去重、不經 Set/Map 收斂，讓重複券在畫面上如實顯示，
-      // 否則顯示的商品數與省額會跟卡片上的數字對不上。
-      deals: hit.d.map(toDeal),
-      uncovered: hit.u.map(id => byId.get(id)!),
+      savingsFrom: hit.savingsFrom,
+      itemCount: hit.itemCount,
+      priceFrom: hit.priceFrom,
+      // 注意：hit.dealIds 是「含重複」的多重集合（星級點／甜心卡可重複
+      // 兌換），這裡逐一 map、不去重、不經 Set/Map 收斂，讓重複券在畫面
+      // 上如實顯示，否則顯示的商品數與省額會跟卡片上的數字對不上。
+      deals: hit.dealIds.map(toDeal),
+      uncovered: hit.uncovered.map(id => byId.get(id)!),
       hints,
     }
   }, [canSubmit, timeSlot, selected, objective, buttons, hints])

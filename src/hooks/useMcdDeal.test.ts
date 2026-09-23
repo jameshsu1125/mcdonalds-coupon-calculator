@@ -3,14 +3,14 @@ import { renderHook, act } from '@testing-library/react'
 import { useMcdDeal } from './useMcdDeal'
 
 describe('useMcdDeal', () => {
-  it('defaults to min_coupons when no objective is given', () => {
-    // James 2026-09-23 裁示：預設改為「券數最少」。
-    // max_savings 會為了衝高省額把同一張星級點/甜心卡買到 n 次
-    // （按 6 個鍵可能拿到 18 樣、付 434 元），當預設值容易誤導。
-    // 這個值的來源是 config.json 的 default_objective，經 export_package.py
-    // 寫進 data.json 的 defaultObjective —— 釘住它，避免重跑匯出時悄悄漂回去。
+  it('defaults to min_price when no objective is given', () => {
+    // 這個值的來源是 config.json 的 default_objective（"min_price"），經
+    // export_package.py 寫進 data.json 的 defaultObjective，也是
+    // scripts/solver.py solve() 本身的預設參數（tests/test_solver.py 的
+    // test_solve_default_objective_is_min_price 釘住 Python 那一半）——
+    // 釘住這裡，避免重跑匯出或改動 solver.ts 預設值時兩邊悄悄不一致。
     const { result } = renderHook(() => useMcdDeal())
-    expect(result.current.objective).toBe('min_coupons')
+    expect(result.current.objective).toBe('min_price')
   })
 
   it('an explicit objective option still overrides the default', () => {
@@ -98,7 +98,10 @@ describe('useMcdDeal', () => {
   })
 
   it('max_savings never reports less than min_coupons', () => {
-    const { result } = renderHook(() => useMcdDeal({ timeSlot: 'regular' }))
+    // 明確指定 objective，不要靠預設值 —— 這個測試原本假設預設是 max_savings，
+    // 預設改成 min_price 之後就失效了（min_price 的省額本來就比 min_coupons 低）。
+    const { result } = renderHook(() =>
+      useMcdDeal({ timeSlot: 'regular', objective: 'max_savings' }))
     act(() => { result.current.toggle('beef_burger') })
     act(() => { result.current.toggle('soda') })
     const high = result.current.result!.savingsFrom
@@ -149,30 +152,38 @@ describe('useMcdDeal', () => {
 
 })
 
-describe('useMcdDeal — lookup miss', () => {
-  it('throws instead of returning a degraded result when data.json has no entry for the selection', async () => {
+describe('useMcdDeal — computed instead of looked up', () => {
+  // v2 不再內嵌 lookup 表（見 solver.test.ts 的完整 oracle 比對），
+  // useMcdDeal 改成呼叫 solve() 即時算答案。這裡釘住的行為變化是：
+  // 就算 deals 資料完全湊不到任何一張券，也不再是「查表 miss 就丟例外」
+  // ——solve() 對任何合法輸入都會回傳一個結果（可能 deals 是空陣列、
+  // uncovered 是全部按鍵），呼叫端不需要再處理「miss」這個舊概念。
+  it('still returns a (possibly empty) result when no deal in the data covers the selection', async () => {
     vi.resetModules()
     vi.doMock('./data.json', () => ({
       default: {
         generatedFrom: 'test', validFrom: '2026-09-01', validTo: '2026-09-30',
-        defaultObjective: 'max_savings',
+        defaultObjective: 'min_price',
         buttons: [
           { id: 'soda', label: '汽水', time_slots: ['regular'], price_range: { regular: { min: 30, max: 30 } } },
           { id: 'tea', label: '茶飲', time_slots: ['regular'], price_range: { regular: { min: 30, max: 30 } } },
         ],
+        // 故意留空：這張假資料裡沒有任何一張券蓋得到 soda/tea
         deals: [],
-        // 故意留空：任何 2 鍵組合在這張假資料裡都查不到，模擬 data.json 建置有缺
-        lookup: { max_savings: {}, min_coupons: {} },
         keypadOrder: { breakfast: [], regular: ['soda', 'tea'] },
       },
     }))
-    const { useMcdDeal: hookWithBrokenData } = await import('./useMcdDeal')
+    const { useMcdDeal: hookWithNoDeals } = await import('./useMcdDeal')
 
-    const { result } = renderHook(() => hookWithBrokenData({ timeSlot: 'regular' }))
+    const { result } = renderHook(() => hookWithNoDeals({ timeSlot: 'regular' }))
     act(() => { result.current.toggle('soda') })
-    expect(() => {
-      act(() => { result.current.toggle('tea') })
-    }).toThrow(/lookup miss/)
+    act(() => { result.current.toggle('tea') })
+
+    expect(result.current.canSubmit).toBe(true)
+    const r = result.current.result!
+    expect(r.savingsFrom).toBe(0)
+    expect(r.deals).toEqual([])
+    expect(r.uncovered.map(b => b.id).sort()).toEqual(['soda', 'tea'])
 
     vi.doUnmock('./data.json')
     vi.resetModules()

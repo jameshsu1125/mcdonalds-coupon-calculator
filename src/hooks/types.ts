@@ -1,5 +1,5 @@
 export type TimeSlot = 'breakfast' | 'regular'
-export type Objective = 'max_savings' | 'min_coupons'
+export type Objective = 'max_savings' | 'min_coupons' | 'min_price'
 
 export interface McdButton {
   id: string
@@ -71,10 +71,10 @@ export interface McdData {
     itemCount: number
     timeSlot: TimeSlot | 'all_day'
     hintOnly: boolean
+    // solve() 用來判斷「同一張實體券不能重複選用」（bogo/meal_gift 專用，
+    // star/sweetheart 可以重複，見 solver.ts 的 REPEATABLE_SOURCES）
+    baseCoupon: string
   }>
-  lookup: Record<Objective, Record<string, {
-    s: number; n: number; p: number; d: string[]; u: string[]
-  }>>
   // 每個時段按鍵的顯示順序，照客戶 4x4 規格表（common.BREAKFAST_KEYS /
   // common.REGULAR_KEYS），不是 buttons 陣列本身的順序
   keypadOrder: Record<TimeSlot, string[]>

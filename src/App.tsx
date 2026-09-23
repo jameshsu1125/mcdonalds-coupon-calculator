@@ -19,6 +19,7 @@ export default function App() {
             setSubmitted(false);
           }}
         >
+          <option value="min_price">花費最少</option>
           <option value="max_savings">省最多</option>
           <option value="min_coupons">券數最少</option>
         </select>
