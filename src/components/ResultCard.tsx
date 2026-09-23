@@ -1,95 +1,46 @@
-import type { Bundle, Deal, Role } from "../lib/types";
+import type { McdResult } from "../hooks";
 
-const ROLE_LABEL: Record<Role, string> = {
-  A: "A區", B: "B區", BOGO: "買一送一",
-  MAIN: "主餐", SIDE: "副餐", DRINK: "飲料", GIFT: "贈品",
-};
-
-const ROLE_STYLE: Record<Role, string> = {
-  A: "badge-primary", B: "badge-secondary", BOGO: "badge-accent",
-  MAIN: "badge-primary", SIDE: "badge-ghost", DRINK: "badge-info",
-  GIFT: "badge-success",
-};
-
-function CouponRow({ deal, index }: { deal: Deal; index: number }) {
+export default function ResultCard({ result }: { result: McdResult }) {
   return (
-    <li className="rounded-box border border-base-300 bg-base-100 p-3">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className="mr-2 font-mono text-xs opacity-50">券 {index + 1}</span>
-          <span className="text-sm font-medium">{deal.source}</span>
-          {deal.channel && (
-            <span className="badge badge-warning badge-sm ml-2">{deal.channel}</span>
-          )}
-        </div>
-        <span className="shrink-0 font-mono text-sm tabular-nums">${deal.price}</span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {deal.items.map((it, i) => (
-          <span key={i} className="badge badge-sm gap-1 whitespace-nowrap">
-            <span className={`badge badge-xs ${ROLE_STYLE[it.zone]}`} />
-            {it.name}
-            {it.qty > 1 && <span className="opacity-60">x{it.qty}</span>}
-            <span className="opacity-40">{ROLE_LABEL[it.zone]}</span>
+    <div className="card bg-base-200 shadow">
+      <div className="card-body gap-4">
+        <div className="flex items-baseline gap-3">
+          <span className="text-4xl font-bold text-primary">
+            省 ${result.savingsFrom} 起
           </span>
-        ))}
-      </div>
-    </li>
-  );
-}
-
-/**
- * Tailwind 是靠掃描原始碼裡的字面字串產生 class 的，所以顏色必須寫死，
- * 不能用 `border-${accent}` 這種樣板字串組出來 —— 那樣掃不到、樣式不會生成。
- */
-const ACCENT = {
-  primary: { border: "border-primary", text: "text-primary" },
-  secondary: { border: "border-secondary", text: "text-secondary" },
-} as const;
-
-export default function ResultCard({
-  title, subtitle, bundle, accent,
-}: {
-  title: string;
-  subtitle: string;
-  bundle: Bundle;
-  accent: keyof typeof ACCENT;
-}) {
-  const c = ACCENT[accent];
-  return (
-    <div className={`card border-2 bg-base-200 ${c.border}`}>
-      <div className="card-body gap-4 p-5">
-        <div>
-          <h3 className={`card-title ${c.text}`}>{title}</h3>
-          <p className="text-sm opacity-60">{subtitle}</p>
+          <span className="text-lg opacity-70">
+            至少可獲得 {result.itemCount} 樣
+          </span>
         </div>
 
-        <div className="stats stats-horizontal bg-base-100 shadow-sm">
-          <div className="stat place-items-center px-3 py-2">
-            <div className="stat-title text-xs">實付</div>
-            <div className="stat-value text-2xl tabular-nums">${bundle.total_price}</div>
-          </div>
-          <div className="stat place-items-center px-3 py-2">
-            <div className="stat-title text-xs">省下</div>
-            <div className="stat-value text-2xl text-success tabular-nums">
-              ${bundle.total_savings}
-            </div>
-          </div>
-          <div className="stat place-items-center px-3 py-2">
-            <div className="stat-title text-xs">品項</div>
-            <div className="stat-value text-2xl tabular-nums">{bundle.total_items}</div>
-          </div>
-          <div className="stat place-items-center px-3 py-2">
-            <div className="stat-title text-xs">用券</div>
-            <div className="stat-value text-2xl tabular-nums">{bundle.coupon_count}</div>
-          </div>
-        </div>
-
+        {/* result.deals 是含重複的多重集合（星級點／甜心卡允許重複兌換）。
+            不去重、不用 d.id 當 key —— 否則畫面上的商品數與省額會跟這份
+            清單對不上。用陣列索引當 key。 */}
         <ul className="flex flex-col gap-2">
-          {bundle.coupons.map((d, i) => (
-            <CouponRow key={d._id} deal={d} index={i} />
+          {result.deals.map((d, i) => (
+            <li key={i} className="flex justify-between gap-4 text-sm">
+              <span>{d.title}</span>
+              <span className="whitespace-nowrap opacity-70">
+                ${d.priceMin}
+                {d.priceMax !== d.priceMin && `~${d.priceMax}`}
+              </span>
+            </li>
           ))}
         </ul>
+
+        {/* result.uncovered 是 McdButton[]，顯示用 .label */}
+        {result.uncovered.length > 0 && (
+          <div className="alert alert-warning text-sm">
+            這幾項沒有優惠可搭，需另外原價單點：
+            {result.uncovered.map((b) => b.label).join("、")}
+          </div>
+        )}
+
+        {result.hints.length > 0 && (
+          <div className="text-xs opacity-60">
+            另可留意：{result.hints.map((h) => h.title).join("；")}
+          </div>
+        )}
       </div>
     </div>
   );

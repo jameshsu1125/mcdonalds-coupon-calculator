@@ -1,2 +1,9 @@
-@import "tailwindcss";
+/* Tailwind 4 預設會自動偵測要掃描的原始檔，並倚賴 .gitignore 排除 node_modules。
+   這個專案不是 git repo（沒有任何 .gitignore），自動偵測因此會掃過
+   web/node_modules（122MB）與 package/、lookup/、data/ 底下約 7MB 的 JSON，
+   實測讓 index.css 的首次轉換耗時 101 秒。
+   source(none) 關掉自動偵測，下面明確列出真正含有 class 名稱的檔案。 */
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "./**/*.{ts,tsx}";
 @plugin "daisyui";
