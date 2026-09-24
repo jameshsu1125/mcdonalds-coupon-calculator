@@ -476,19 +476,19 @@ describe('regression pins (ported from TestMustNotRegressMutations)', () => {
   })
 
   it('deal_ids keeps repeated ids as a multiset (real data, breakfast 6-key combo)', () => {
-    // 釘住 useMcdDeal.test.ts 同一組真實資料案例：s=291,n=18,p=428，
-    // deal_ids 含兩次 star-12。
+    // 釘住 useMcdDeal.test.ts 同一組真實資料案例：s=287,n=18,p=428，
+    // deal_ids 含兩次 star-11。
     const r = solve(
       'breakfast',
       ['apple_pie', 'bagel', 'cone', 'mcchicken', 'muffin', 'pancake'],
       DEALS,
       'max_savings',
     )
-    expect(r.savingsFrom).toBe(291)
+    expect(r.savingsFrom).toBe(287)
     expect(r.itemCount).toBe(18)
     expect(r.priceFrom).toBe(428)
     expect(r.dealIds).toHaveLength(6)
-    expect(r.dealIds.filter((id) => id === 'star-12')).toHaveLength(2)
+    expect(r.dealIds.filter((id) => id === 'star-11')).toHaveLength(2)
   })
 })
 

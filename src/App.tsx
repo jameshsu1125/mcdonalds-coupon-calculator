@@ -49,7 +49,9 @@ export default function App() {
         onSubmit={() => setSubmitted(true)}
       />
 
-      {submitted && d.result && <ResultCard result={d.result} />}
+      {submitted && d.result && (
+        <ResultCard result={d.result} objective={d.objective} />
+      )}
     </div>
   );
 }

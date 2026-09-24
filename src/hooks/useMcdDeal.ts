@@ -20,6 +20,7 @@ function toDeal(id: string): McdDeal {
     id: d.id, title: d.title, source: d.source, covers: d.covers,
     priceMin: d.priceMin, priceMax: d.priceMax,
     savingsMin: d.savingsMin, itemCount: d.itemCount,
+    breakdown: d.breakdown ?? null,
   }
 }
 

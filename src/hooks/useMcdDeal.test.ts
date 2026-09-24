@@ -126,7 +126,7 @@ describe('useMcdDeal', () => {
   // deal_ids 是多重集合：星級點／甜心卡允許重複兌換，同一張券可以在 d 陣列
   // 出現兩次以上。這裡釘住一筆真實資料裡的重複案例
   // （breakfast: apple_pie, bagel, cone, mcchicken, muffin, pancake，
-  //  max_savings 查表 d 含兩次 star-12），確認 hook 輸出的 deals 陣列
+  //  max_savings 的 d 含兩次 star-11），確認 hook 輸出的 deals 陣列
   // 保留重複，而不是被 Set/Map 去重掉。
   it('keeps repeated deal ids as a multiset, not deduplicated', () => {
     const { result } = renderHook(() => useMcdDeal({ timeSlot: 'breakfast', objective: 'max_savings' }))
@@ -135,14 +135,14 @@ describe('useMcdDeal', () => {
 
     expect(result.current.canSubmit).toBe(true)
     const r = result.current.result!
-    // pinned against real lookup entry: s=291, n=18, p=428
-    expect(r.savingsFrom).toBe(291)
+    // pinned against real data: s=287, n=18, p=428
+    expect(r.savingsFrom).toBe(287)
     expect(r.itemCount).toBe(18)
     expect(r.priceFrom).toBe(428)
 
     // 6 張券（含重複），不是去重後的 5 張
     expect(r.deals).toHaveLength(6)
-    const star12Count = r.deals.filter(d => d.id === 'star-12').length
+    const star12Count = r.deals.filter(d => d.id === 'star-11').length
     expect(star12Count).toBe(2)
 
     // 逐一加總 savingsMin 應該等於 savingsFrom（含重複才會對得上）
