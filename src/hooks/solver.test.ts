@@ -209,7 +209,10 @@ describe('pinned case: nuggets+soda under min_price', () => {
 // ---------------------------------------------------------------------------
 
 describe('uncovered-combo counts', () => {
-  it('breakfast has exactly 56 combos with non-empty uncovered; regular has none', async () => {
+  // 星級點只限午晚餐後：早餐含蘋果派（唯一的券是星級點）或含 bagel/filet/
+  // mcchicken/muffin/pancake 中任 4 個以上（只有 3 張早餐套餐基礎券）的組合
+  // 蓋不齊。組合數學手算見 tests/test_lookup.py 同名測試：2379+185+9=2573。
+  it('breakfast has exactly 2573 combos with non-empty uncovered; regular has none', async () => {
     const queries = allQueries()
     let n = 0
     for (const objective of OBJECTIVES) {
@@ -223,7 +226,7 @@ describe('uncovered-combo counts', () => {
           else regularUncovered++
         }
       }
-      expect(breakfastUncovered).toBe(56)
+      expect(breakfastUncovered).toBe(2573)
       expect(regularUncovered).toBe(0)
     }
   }, 60_000)
@@ -475,20 +478,25 @@ describe('regression pins (ported from TestMustNotRegressMutations)', () => {
     expect(r.itemCount).toBe(8)
   })
 
-  it('deal_ids keeps repeated ids as a multiset (real data, breakfast 6-key combo)', () => {
-    // 釘住 useMcdDeal.test.ts 同一組真實資料案例：s=287,n=18,p=428，
-    // deal_ids 含兩次 star-11。
+  it('deal_ids keeps repeated ids as a multiset (real data, regular 6-key combo)', () => {
+    // 跟 useMcdDeal.test.ts 同一組真實資料案例：deal_ids 含兩次 sweet-09
+    // （買汽水送McCafe，甜心卡可重複兌換）。原本用早餐 star-11 重複兩次，
+    // 星級點改成只限午晚餐後那個案例已不合法，換成這組。
+    // 不釘總額數字（那只是把程式輸出貼回來），改驗總額等於逐張加總——
+    // 去重的話這三個等式都會對不上。
     const r = solve(
-      'breakfast',
-      ['apple_pie', 'bagel', 'cone', 'mcchicken', 'muffin', 'pancake'],
+      'regular',
+      ['beef_burger', 'filet', 'fries', 'mccrispy', 'soda', 'tea'],
       DEALS,
       'max_savings',
     )
-    expect(r.savingsFrom).toBe(287)
-    expect(r.itemCount).toBe(18)
-    expect(r.priceFrom).toBe(428)
+    const byId = new Map(DEALS.map((d) => [d.id, d]))
+    const picked = r.dealIds.map((id) => byId.get(id)!)
     expect(r.dealIds).toHaveLength(6)
-    expect(r.dealIds.filter((id) => id === 'star-11')).toHaveLength(2)
+    expect(r.dealIds.filter((id) => id === 'sweet-09')).toHaveLength(2)
+    expect(picked.reduce((s, d) => s + d.savingsMin, 0)).toBe(r.savingsFrom)
+    expect(picked.reduce((s, d) => s + d.itemCount, 0)).toBe(r.itemCount)
+    expect(picked.reduce((s, d) => s + d.priceMin, 0)).toBe(r.priceFrom)
   })
 })
 
