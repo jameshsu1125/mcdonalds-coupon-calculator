@@ -6,58 +6,54 @@ interface Props {
   timeSlot: TimeSlot;
   canSubmit: boolean;
   onToggle: (id: string) => void;
-  onClear: () => void;
   onSwitchSlot: () => void;
   onSubmit: () => void;
 }
 
-// 4x4 鍵盤：14 個商品鍵（按 hook 回傳的順序，不重排、不分組）
-// + 切換時段 + 刪除 補滿第 16 格，Enter 另外整列。
+// 照客戶 2026-10-13 鍵盤圖排成 4x4：前 12 個商品鍵排滿三列，最後一列是
+// 切換時段、第 13~14 個商品鍵（蛋捲冰淇淋、冰炫風）、Enter。最上面那列
+// （刪除/音效/口播稿）James 指示先不放；要取消已選的按鍵就再按一次。
+const ITEMS_BEFORE_LAST_ROW = 12;
+
 export default function Keypad(p: Props) {
+  const itemButton = (b: McdButton) => {
+    const on = p.selected.includes(b.id);
+    return (
+      <button
+        key={b.id}
+        type="button"
+        onClick={() => p.onToggle(b.id)}
+        aria-pressed={on}
+        className={`btn h-20 flex-col gap-0 text-sm leading-tight ${
+          on ? "btn-primary" : "btn-outline"
+        }`}
+      >
+        <span>{b.label}</span>
+        <span className="text-xs opacity-60">
+          ${b.priceMin}
+          {b.priceMax !== b.priceMin && `~${b.priceMax}`}
+        </span>
+      </button>
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-4 gap-2">
-        {p.buttons.map((b) => {
-          const on = p.selected.includes(b.id);
-          return (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => p.onToggle(b.id)}
-              aria-pressed={on}
-              className={`btn h-20 flex-col gap-0 text-sm leading-tight ${
-                on ? "btn-primary" : "btn-outline"
-              }`}
-            >
-              <span>{b.label}</span>
-              <span className="text-xs opacity-60">
-                ${b.priceMin}
-                {b.priceMax !== b.priceMin && `~${b.priceMax}`}
-              </span>
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className="btn btn-ghost h-20 flex-col gap-0"
-          onClick={p.onSwitchSlot}
-        >
-          <span>切換時段</span>
-          <span className="text-xs opacity-60">
-            {p.timeSlot === "breakfast" ? "目前早餐" : "目前午晚餐"}
-          </span>
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost h-20"
-          onClick={p.onClear}
-        >
-          刪除
-        </button>
-      </div>
+    <div className="grid grid-cols-4 gap-2">
+      {p.buttons.slice(0, ITEMS_BEFORE_LAST_ROW).map(itemButton)}
       <button
         type="button"
-        className="btn btn-secondary h-16 w-full"
+        className="btn btn-ghost h-20 flex-col gap-0"
+        onClick={p.onSwitchSlot}
+      >
+        <span>切換時段</span>
+        <span className="text-xs opacity-60">
+          {p.timeSlot === "breakfast" ? "目前早餐" : "目前午晚餐"}
+        </span>
+      </button>
+      {p.buttons.slice(ITEMS_BEFORE_LAST_ROW).map(itemButton)}
+      <button
+        type="button"
+        className="btn btn-secondary h-20"
         disabled={!p.canSubmit}
         onClick={p.onSubmit}
       >

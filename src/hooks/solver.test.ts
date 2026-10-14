@@ -209,10 +209,10 @@ describe('pinned case: nuggets+soda under min_price', () => {
 // ---------------------------------------------------------------------------
 
 describe('uncovered-combo counts', () => {
-  // 星級點只限午晚餐後：早餐含蘋果派（唯一的券是星級點）或含 bagel/filet/
-  // mcchicken/muffin/pancake 中任 4 個以上（只有 3 張早餐套餐基礎券）的組合
-  // 蓋不齊。組合數學手算見 tests/test_lookup.py 同名測試：2379+185+9=2573。
-  it('breakfast has exactly 2573 combos with non-empty uncovered; regular has none', async () => {
+  // 早餐含 bagel/egg_burger/filet/mcchicken/muffin/pancake 中任 4 個以上
+  // （只有 3 張早餐套餐基礎券、每張蓋一個主餐）的組合蓋不齊。組合數學手算
+  // 見 tests/test_lookup.py 同名測試：555+54+1=610。
+  it('breakfast has exactly 610 combos with non-empty uncovered; regular has none', async () => {
     const queries = allQueries()
     let n = 0
     for (const objective of OBJECTIVES) {
@@ -226,7 +226,7 @@ describe('uncovered-combo counts', () => {
           else regularUncovered++
         }
       }
-      expect(breakfastUncovered).toBe(2573)
+      expect(breakfastUncovered).toBe(610)
       expect(regularUncovered).toBe(0)
     }
   }, 60_000)

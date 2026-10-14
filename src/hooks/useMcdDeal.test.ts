@@ -30,24 +30,24 @@ describe('useMcdDeal', () => {
     expect(result.current.buttons).toHaveLength(14)
   })
 
-  // 按鍵順序照客戶的 4x4 規格表（common.BREAKFAST_KEYS / common.REGULAR_KEYS），
+  // 按鍵順序照客戶 2026-10-13 的鍵盤圖（common.BREAKFAST_KEYS / common.REGULAR_KEYS），
   // 不是 data.json 裡 buttons 陣列本身的順序（那是 BUTTON_IDS 字典序，
   // regular 時段會整個排錯）。這裡釘住兩個時段完整、有序的 id 陣列，
   // 只檢查 length 不會抓到順序錯誤。
   it('returns buttons in the exact 4x4 keypad order for each slot', () => {
     const breakfast = renderHook(() => useMcdDeal({ timeSlot: 'breakfast' }))
     expect(breakfast.result.current.buttons.map(b => b.id)).toEqual([
-      'muffin', 'mcchicken', 'filet', 'hashbrown',
-      'pancake', 'bagel', 'nuggets', 'soda',
-      'mccafe', 'tea', 'corn_soup', 'apple_pie',
+      'muffin', 'pancake', 'bagel', 'egg_burger',
+      'nuggets', 'mcchicken', 'filet', 'hashbrown',
+      'soda', 'mccafe', 'tea', 'corn_soup',
       'cone', 'mcflurry',
     ])
 
     const regular = renderHook(() => useMcdDeal({ timeSlot: 'regular' }))
     expect(regular.result.current.buttons.map(b => b.id)).toEqual([
-      'beef_burger', 'chicken_burger', 'filet', 'fries',
-      'mccrispy', 'spicy_wings', 'nuggets', 'soda',
-      'mccafe', 'tea', 'corn_soup', 'apple_pie',
+      'beef_burger', 'chicken_burger', 'filet', 'mccrispy',
+      'nuggets', 'spicy_wings', 'fries', 'apple_pie',
+      'soda', 'mccafe', 'tea', 'corn_soup',
       'cone', 'mcflurry',
     ])
   })
