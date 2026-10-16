@@ -1,5 +1,7 @@
 export type TimeSlot = 'breakfast' | 'regular'
 export type Objective = 'max_savings' | 'min_coupons' | 'min_price'
+// 「買套餐送X」的原價：set_meal＝套餐價（省額＝贈品），a_la_carte＝各單品加總
+export type MealSavingsBasis = 'set_meal' | 'a_la_carte'
 
 export interface McdButton {
   id: string
@@ -60,6 +62,7 @@ export interface UseMcdDeal {
   result: McdResult | null
   minKeys: 2
   maxKeys: 6
+  mealSavingsBasis: MealSavingsBasis
 }
 
 // 內部型別：v2/package/data.json 的實際形狀（build-time 產物，呼叫端不需要引用）
@@ -68,6 +71,7 @@ export interface McdData {
   validFrom: string
   validTo: string
   defaultObjective: Objective
+  mealSavingsBasis: MealSavingsBasis
   buttons: Array<{
     id: string
     label: string

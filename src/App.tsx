@@ -61,7 +61,11 @@ export default function App() {
       />
 
       {submitted && d.result && (
-        <ResultCard result={d.result} objective={d.objective} />
+        <ResultCard
+          result={d.result}
+          objective={d.objective}
+          mealSavingsBasis={d.mealSavingsBasis}
+        />
       )}
     </div>
   );

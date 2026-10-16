@@ -1,4 +1,4 @@
-import type { McdDeal, McdResult, Objective } from "../hooks";
+import type { McdDeal, McdResult, MealSavingsBasis, Objective } from "../hooks";
 
 // 每種券的省額公式，對應 scripts/build_deals.py 裡各 build_*_deals() 的算法
 const SOURCE_RULES: Record<McdDeal["source"], { name: string; rule: string }> = {
@@ -16,9 +16,14 @@ const SOURCE_RULES: Record<McdDeal["source"], { name: string; rule: string }> = 
   },
   meal_gift: {
     name: "買套餐送贈品",
-    rule: "套餐價比主餐、配餐、飲料分開買便宜，另外再送一樣。省額 ＝ 主餐單點＋配餐內容單點＋飲料原價＋贈品原價 − 實付（套餐價＋飲料加價）。",
+    rule: "", // 依 meal_savings 設定，見下面 MEAL_GIFT_RULE
   },
   spend: { name: "滿額送", rule: "" },
+};
+
+const MEAL_GIFT_RULE: Record<MealSavingsBasis, string> = {
+  set_meal: "買套餐另外再送一樣。原價就是套餐價（含飲料加價），所以省額 ＝ 送的那樣的原價。",
+  a_la_carte: "套餐價比主餐、配餐、飲料分開買便宜，另外再送一樣。省額 ＝ 主餐單點＋配餐內容單點＋飲料原價＋贈品原價 − 實付（套餐價＋飲料加價）。",
 };
 
 const OBJECTIVE_REASON: Record<Objective, string> = {
@@ -70,10 +75,14 @@ function DealBlock({ deal }: { deal: McdDeal }) {
 export default function ResultCard({
   result,
   objective,
+  mealSavingsBasis,
 }: {
   result: McdResult;
   objective: Objective;
+  mealSavingsBasis: MealSavingsBasis;
 }) {
+  const ruleOf = (s: McdDeal["source"]) =>
+    s === "meal_gift" ? MEAL_GIFT_RULE[mealSavingsBasis] : SOURCE_RULES[s].rule;
   const withBreakdown = result.deals.filter((d) => d.breakdown);
   const originalTotal = withBreakdown.reduce(
     (s, d) => s + d.breakdown!.items.reduce((t, i) => t + i.price, 0),
@@ -128,10 +137,10 @@ export default function ResultCard({
           <h3 className="mb-1 font-bold">為什麼這樣算</h3>
           <ul className="list-disc space-y-1 pl-5 opacity-80">
             {sources
-              .filter((s) => SOURCE_RULES[s].rule)
+              .filter((s) => ruleOf(s))
               .map((s) => (
                 <li key={s}>
-                  <b>{SOURCE_RULES[s].name}</b>：{SOURCE_RULES[s].rule}
+                  <b>{SOURCE_RULES[s].name}</b>：{ruleOf(s)}
                 </li>
               ))}
             <li>

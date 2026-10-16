@@ -97,5 +97,6 @@ export function useMcdDeal(options: UseMcdDealOptions = {}): UseMcdDeal {
     timeSlot, setTimeSlot, objective, setObjective,
     buttons, selected, toggle, clear, canSubmit, result,
     minKeys: MIN_KEYS, maxKeys: MAX_KEYS,
+    mealSavingsBasis: DATA.mealSavingsBasis,
   }
 }

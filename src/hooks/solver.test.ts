@@ -493,7 +493,9 @@ describe('regression pins (ported from TestMustNotRegressMutations)', () => {
     const byId = new Map(DEALS.map((d) => [d.id, d]))
     const picked = r.dealIds.map((id) => byId.get(id)!)
     expect(r.dealIds).toHaveLength(6)
-    expect(r.dealIds.filter((id) => id === 'sweet-09')).toHaveLength(2)
+    // 重複幾次取決於省額資料（2026-10-16 套餐價省額後從 2 次變 3 次），
+    // 這裡要驗的只是「有重複、沒被去重」
+    expect(r.dealIds.filter((id) => id === 'sweet-09').length).toBeGreaterThanOrEqual(2)
     expect(picked.reduce((s, d) => s + d.savingsMin, 0)).toBe(r.savingsFrom)
     expect(picked.reduce((s, d) => s + d.itemCount, 0)).toBe(r.itemCount)
     expect(picked.reduce((s, d) => s + d.priceMin, 0)).toBe(r.priceFrom)

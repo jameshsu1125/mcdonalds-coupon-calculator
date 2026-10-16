@@ -25,6 +25,13 @@ describe('useMcdDeal', () => {
     expect(result.current.result).toBeNull()
   })
 
+  // 結果卡靠這個值決定「買套餐送贈品」的算式說明；data.json 少了它時
+  // 說明會整條消失而不會報錯（2026-10-16 真的發生過），所以釘住。
+  it('exposes meal_savings.basis from config (set_meal)', () => {
+    const { result } = renderHook(() => useMcdDeal())
+    expect(result.current.mealSavingsBasis).toBe('set_meal')
+  })
+
   it('exposes 14 buttons per slot', () => {
     const { result } = renderHook(() => useMcdDeal({ timeSlot: 'breakfast' }))
     expect(result.current.buttons).toHaveLength(14)
@@ -140,7 +147,8 @@ describe('useMcdDeal', () => {
 
     // 6 張券（含重複），不是去重後的 5 張
     expect(r.deals).toHaveLength(6)
-    expect(r.deals.filter(d => d.id === 'sweet-09')).toHaveLength(2)
+    // 重複幾次取決於省額資料，要驗的只是有重複、沒被去重
+    expect(r.deals.filter(d => d.id === 'sweet-09').length).toBeGreaterThanOrEqual(2)
 
     // 逐一加總應該等於卡片上的總數（含重複才會對得上）
     expect(r.deals.reduce((acc, d) => acc + d.savingsMin, 0)).toBe(r.savingsFrom)
