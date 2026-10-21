@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useMcdDeal } from './useMcdDeal'
+import { solveMcdDeal, useMcdDeal } from './useMcdDeal'
 
 describe('useMcdDeal', () => {
   it('defaults to min_price when no objective is given', () => {
@@ -193,5 +193,79 @@ describe('useMcdDeal — computed instead of looked up', () => {
 
     vi.doUnmock('./data.json')
     vi.resetModules()
+  })
+})
+
+// 結果頁一次拿到整組按鍵 id 時用的純函式（不經過 toggle）。hook 內部也是
+// 呼叫它，所以兩邊對同一組輸入必須回傳一模一樣的結果。
+describe('solveMcdDeal', () => {
+  it('returns exactly what the hook returns for the same keys', () => {
+    const keys = ['beef_burger', 'fries', 'soda']
+    const { result } = renderHook(() =>
+      useMcdDeal({ timeSlot: 'regular', objective: 'max_savings' }))
+    keys.forEach(k => act(() => { result.current.toggle(k) }))
+    expect(solveMcdDeal('regular', keys, 'max_savings')).toEqual(result.current.result)
+  })
+
+  it('does not depend on the order of keys', () => {
+    expect(solveMcdDeal('regular', ['soda', 'fries', 'beef_burger'], 'max_savings'))
+      .toEqual(solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_savings'))
+  })
+
+  it('returns null when fewer than 2 or more than 6 distinct keys', () => {
+    expect(solveMcdDeal('regular', ['fries'])).toBeNull()
+    expect(solveMcdDeal('regular', [])).toBeNull()
+    expect(solveMcdDeal('regular', [
+      'beef_burger', 'chicken_burger', 'filet', 'mccrispy', 'nuggets', 'fries', 'soda',
+    ])).toBeNull()
+  })
+
+  it('counts a repeated id once (one button never means two portions)', () => {
+    expect(solveMcdDeal('regular', ['fries', 'fries'])).toBeNull()
+    expect(solveMcdDeal('regular', ['fries', 'soda', 'fries'], 'max_savings'))
+      .toEqual(solveMcdDeal('regular', ['fries', 'soda'], 'max_savings'))
+  })
+
+  it('throws on ids that are not on this time slot\'s keypad', () => {
+    // 早餐沒有薯條；打錯字也一樣。一次傳整組時默默少算一個按鍵比報錯難查
+    expect(() => solveMcdDeal('breakfast', ['fries', 'soda'])).toThrow(/fries/)
+    expect(() => solveMcdDeal('regular', ['soda', 'frise'])).toThrow(/frise/)
+  })
+
+  it('defaults to data.json defaultObjective (min_price)', () => {
+    expect(solveMcdDeal('regular', ['beef_burger', 'soda']))
+      .toEqual(solveMcdDeal('regular', ['beef_burger', 'soda'], 'min_price'))
+  })
+})
+
+describe('McdDeal.products', () => {
+  it('lists one entry per item, each tagged with its button', () => {
+    const r = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_savings')!
+    for (const d of r.deals) {
+      expect(d.products).toHaveLength(d.itemCount)
+      const buttons = new Set(d.products.map(p => p.button).filter(Boolean))
+      expect(buttons).toEqual(new Set(d.covers))
+    }
+    const meal = r.deals.find(d => d.source === 'meal_gift')!
+    expect(meal.products.map(p => [p.role, p.button])).toEqual([
+      ['主餐', 'beef_burger'], ['配餐', 'fries'], ['飲料', 'soda'], ['贈品', 'fries'],
+    ])
+  })
+})
+
+describe('category', () => {
+  it('every button carries its category', () => {
+    const { result } = renderHook(() => useMcdDeal({ timeSlot: 'breakfast' }))
+    const byId = Object.fromEntries(result.current.buttons.map(b => [b.id, b.category]))
+    expect(byId.muffin).toBe('肉類')
+    expect(byId.hashbrown).toBe('炸物')
+    expect(byId.tea).toBe('咖啡／茶')
+    expect(byId.egg_burger).toBe('none')
+  })
+
+  it('every deal product carries its button category', () => {
+    const r = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_savings')!
+    const meal = r.deals.find(d => d.source === 'meal_gift')!
+    expect(meal.products.map(p => p.category)).toEqual(['肉類', '炸物', '湯／甜點／飲料', '炸物'])
   })
 })
