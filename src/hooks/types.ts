@@ -3,13 +3,15 @@ export type Objective = 'max_savings' | 'min_coupons' | 'min_price'
 // 「買套餐送X」的原價：set_meal＝套餐價（省額＝贈品），a_la_carte＝各單品加總
 export type MealSavingsBasis = 'set_meal' | 'a_la_carte'
 
-// 按鍵分類（v2/config.json 的 button_categories）；還沒定的是 'none'
+// 按鍵分類（v2/config.json 的 button_categories）。客戶用語：肌不可失=肉類、
+// 快樂多巴胺=炸物、好療癒=湯／甜點／飲料、獨自清醒=咖啡／茶。
+// 'none' 只會出現在沒有按鍵的商品（四季沙拉）。
 export type McdCategory = '肉類' | '炸物' | '湯／甜點／飲料' | '咖啡／茶' | 'none'
 
 export interface McdButton {
   id: string
   label: string
-  category: McdCategory
+  categories: McdCategory[]   // 一個按鍵可以有多個分類，例如麥克鷄塊是 ['炸物', '肉類']
   priceMin: number
   priceMax: number
 }
@@ -33,7 +35,7 @@ export interface McdDealProduct {
   role: string
   name: string
   button: string | null
-  category: McdCategory   // 所屬按鍵的分類；沒有按鍵的（四季沙拉）是 'none'
+  categories: McdCategory[]   // 所屬按鍵的分類；沒有按鍵的（四季沙拉）是 ['none']
 }
 
 export interface McdDeal {
@@ -89,7 +91,7 @@ export interface McdData {
   buttons: Array<{
     id: string
     label: string
-    category: McdCategory
+    categories: McdCategory[]
     time_slots: TimeSlot[]
     price_range: Record<string, { min: number; max: number }>
   }>
@@ -108,8 +110,8 @@ export interface McdData {
     // star/sweetheart 可以重複，見 solver.ts 的 REPEATABLE_SOURCES）
     baseCoupon: string
     breakdown: McdBreakdown | null
-    // data.json 不帶 category（省檔案大小），toDeal 從 buttons 補上
-    products: Omit<McdDealProduct, 'category'>[]
+    // data.json 不帶 categories（省檔案大小），toDeal 從 buttons 補上
+    products: Omit<McdDealProduct, 'categories'>[]
   }>
   // 每個時段按鍵的顯示順序，照客戶 4x4 規格表（common.BREAKFAST_KEYS /
   // common.REGULAR_KEYS），不是 buttons 陣列本身的順序

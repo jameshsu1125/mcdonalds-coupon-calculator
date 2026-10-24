@@ -188,19 +188,28 @@ const result = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_sa
 
 > 建議不要把上面的表格寫死在程式裡，直接拿 `d.buttons` 來排鍵盤。這樣客戶改鍵盤或價格時，換掉 `data.json` 就好。
 
-### 3.1.1 按鍵分類 `category`
+### 3.1.1 按鍵分類 `categories`
 
-每個按鍵都有一個分類，按鍵底下的每個品項都沿用同一個分類（設定在 `v2/config.json` 的 `button_categories`）：
+每個按鍵有一到兩個分類，按鍵底下的每個品項都沿用同一組分類（設定在 `v2/config.json` 的 `button_categories`，依客戶 2026-10-24 的分類圖）。客戶畫面上的用語：
 
-| `category` | 按鍵 |
+| `categories` 的值 | 客戶用語 |
 |---|---|
-| `肉類` | 牛肉類漢堡、鷄肉類漢堡、麥香鷄、滿福堡系列、麥香魚 |
-| `炸物` | 麥脆鷄腿、勁辣香鷄翅、麥克鷄塊、薯條、薯餅 |
-| `湯／甜點／飲料` | 玉米湯、蘋果派、蛋捲冰淇淋、冰炫風、汽水 |
-| `咖啡／茶` | McCafe、茶飲 |
-| `none` | 蛋堡系列、焙果系列、鬆餅系列（還沒分類） |
+| `肉類` | 肌不可失 |
+| `炸物` | 快樂多巴胺 |
+| `湯／甜點／飲料` | 好療癒 |
+| `咖啡／茶` | 獨自清醒 |
 
-`d.buttons` 的每個按鍵、`deal.products` 的每份商品都有 `category` 欄位。
+| 按鍵 | `categories` |
+|---|---|
+| 滿福堡系列、蛋堡系列、麥香鷄、麥香魚、牛肉類漢堡、鷄肉類漢堡 | `['肉類']` |
+| 麥克鷄塊、麥脆鷄腿、勁辣香鷄翅 | `['炸物', '肉類']` |
+| 薯餅、薯條 | `['炸物']` |
+| 鬆餅系列、焙果系列、汽水、玉米湯、蛋捲冰淇淋、冰炫風、蘋果派 | `['湯／甜點／飲料']` |
+| McCafe、茶飲 | `['湯／甜點／飲料', '咖啡／茶']` |
+
+`d.buttons` 的每個按鍵、`deal.products` 的每份商品都有 `categories` 陣列，順序照客戶圖上由上而下。只有沒有按鍵的四季沙拉是 `['none']`。
+
+統計分類數量時要注意：一份麥克鷄塊會同時算進「炸物」和「肉類」，所以各分類加總會大於品項數。
 
 ### 3.2 功能鍵
 
@@ -276,7 +285,7 @@ interface UseMcdDeal {
 interface McdButton {
   id: string        // 'muffin'，傳給 toggle 用的
   label: string     // '滿福堡系列'，畫面顯示用
-  category: McdCategory  // '肉類' | '炸物' | '湯／甜點／飲料' | '咖啡／茶' | 'none'，見 §3.1.1
+  categories: McdCategory[]  // 例如 ['炸物', '肉類']，見 §3.1.1
   priceMin: number  // 這個按鍵底下最便宜的單點價（目前時段）
   priceMax: number  // 這個按鍵底下最貴的單點價（目前時段）
 }
@@ -358,7 +367,7 @@ interface McdDealProduct {
   role: string           // 這份商品在券裡的角色
   name: string           // 實際品項名稱，例如 '雙層牛肉吉事堡'、'薯條(中)'
   button: string | null  // 屬於哪個按鍵 id（見 §3），畫面可以拿它去查圖示 / className
-  category: McdCategory  // 所屬按鍵的分類（見 §3.1.1）；沒有按鍵的四季沙拉是 'none'
+  categories: McdCategory[]  // 所屬按鍵的分類（見 §3.1.1）；沒有按鍵的四季沙拉是 ['none']
 }
 ```
 
@@ -674,10 +683,11 @@ cd web && npx vitest run
 
 | 設定 | 用途 |
 |---|---|
-| `white_zone_prices` | 1+1 星級點白區小杯飲料的單點價（workbook 沒有，大部分是推估） |
-| `external_prices` | 麥脆鷄腿(一塊) 的單點價（workbook 沒有） |
+| `white_zone_prices` | 1+1 星級點白區小杯飲料的單點價（workbook 沒有，客戶 10/24 已全部確認） |
+| `external_prices` | 麥脆鷄腿(1塊) 的單點價（workbook 沒有，客戶 10/24 已確認 68） |
+| `product_name_aliases` | workbook 不同分頁對同一商品的寫法 → 客戶確認的標準名稱（例如「小薯」→「薯條(小)」）。輸出的品項名稱一律用標準名稱 |
 | `product_button_overrides` | 用品項名稱指定按鍵（例如三個蛋堡 → 蛋堡系列） |
-| `button_categories` | 每個按鍵的分類（見 §3.1.1），每個按鍵都要剛好出現一次 |
+| `button_categories` | 每個按鍵的分類清單（見 §3.1.1），每個按鍵都要有、可以有多個 |
 | `meal_savings.basis` | 「買套餐送X」用套餐價還是單品加總算省額，見 §10.2 |
 | `default_objective` | `useMcdDeal` 沒傳 `objective` 時的預設排序 |
 

@@ -256,16 +256,19 @@ describe('McdDeal.products', () => {
 describe('category', () => {
   it('every button carries its category', () => {
     const { result } = renderHook(() => useMcdDeal({ timeSlot: 'breakfast' }))
-    const byId = Object.fromEntries(result.current.buttons.map(b => [b.id, b.category]))
-    expect(byId.muffin).toBe('肉類')
-    expect(byId.hashbrown).toBe('炸物')
-    expect(byId.tea).toBe('咖啡／茶')
-    expect(byId.egg_burger).toBe('none')
+    const byId = Object.fromEntries(result.current.buttons.map(b => [b.id, b.categories]))
+    expect(byId.muffin).toEqual(['肉類'])
+    expect(byId.hashbrown).toEqual(['炸物'])
+    expect(byId.nuggets).toEqual(['炸物', '肉類'])
+    expect(byId.tea).toEqual(['湯／甜點／飲料', '咖啡／茶'])
+    expect(byId.egg_burger).toEqual(['肉類'])
   })
 
   it('every deal product carries its button category', () => {
     const r = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_savings')!
     const meal = r.deals.find(d => d.source === 'meal_gift')!
-    expect(meal.products.map(p => p.category)).toEqual(['肉類', '炸物', '湯／甜點／飲料', '炸物'])
+    expect(meal.products.map(p => p.categories)).toEqual([
+      ['肉類'], ['炸物'], ['湯／甜點／飲料'], ['炸物'],
+    ])
   })
 })

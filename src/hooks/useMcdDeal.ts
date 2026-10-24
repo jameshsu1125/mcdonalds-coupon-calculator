@@ -23,7 +23,7 @@ function toDeal(id: string): McdDeal {
     breakdown: d.breakdown ?? null,
     products: (d.products ?? []).map(p => ({
       ...p,
-      category: (p.button && BUTTONS_BY_ID.get(p.button)?.category) || 'none',
+      categories: (p.button && BUTTONS_BY_ID.get(p.button)?.categories) || ['none' as const],
     })),
   }
 }
@@ -36,7 +36,7 @@ function buttonsFor(slot: TimeSlot): McdButton[] {
     const b = BUTTONS_BY_ID.get(id)
     if (!b) throw new Error(`unknown button id in keypadOrder: ${id}`)
     return {
-      id: b.id, label: b.label, category: b.category,
+      id: b.id, label: b.label, categories: b.categories,
       priceMin: b.price_range[slot].min,
       priceMax: b.price_range[slot].max,
     }
