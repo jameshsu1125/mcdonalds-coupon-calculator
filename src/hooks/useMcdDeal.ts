@@ -80,7 +80,7 @@ export function solveMcdDeal(
   if (unique.length < MIN_KEYS || unique.length > MAX_KEYS) return null
   // 即時求解（solver.ts，scripts/solver.py 的忠實移植）。DATA.deals 的
   // 形狀是 SolverDeal 的超集合（多帶 title/priceMax 給畫面用），可以直接傳。
-  const hit = solve(timeSlot, unique, DATA.deals as SolverDeal[], objective)
+  const hit = solve(timeSlot, unique, DATA.deals as SolverDeal[], objective, DATA.couponRules)
   return {
     savingsFrom: hit.savingsFrom,
     itemCount: hit.itemCount,

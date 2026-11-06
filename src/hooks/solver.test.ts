@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { OBJECTIVES, solve, type Objective, type SolveResult, type SolverDeal } from './solver'
+import { OBJECTIVES, solve, type CouponRules, type Objective, type SolveResult, type SolverDeal } from './solver'
 import rawData from './data.json'
 
 // ---------------------------------------------------------------------------
@@ -18,6 +18,9 @@ const V2_ROOT = path.resolve(HERE, '../../..')
 // 不是另外用 data/deals.json 湊一份形狀相近但不完全一樣的假資料。
 const DEALS = (rawData as { deals: SolverDeal[] }).deals
 const KEYPAD_ORDER = (rawData as { keypadOrder: Record<string, string[]> }).keypadOrder
+// 正式路徑用的選券規則（config.json coupon_rules，跟 useMcdDeal.ts 一樣從
+// data.json 讀）。底下用假資料的單元測試沒傳這個，測的是舊規則的 DP。
+const RULES = (rawData as { couponRules: Partial<CouponRules> }).couponRules
 
 type LookupFile = {
   objective: Objective
@@ -123,7 +126,7 @@ describe('solve() reproduces every precomputed lookup answer exactly', () => {
           mismatchSamples.push(`${q.lookupKey}: missing from lookup file`)
           continue
         }
-        const got = toLookupShape(solve(q.slot, q.keys, DEALS, objective))
+        const got = toLookupShape(solve(q.slot, q.keys, DEALS, objective, RULES))
         const ok =
           got.s === expected.s &&
           got.n === expected.n &&
@@ -165,11 +168,11 @@ describe('determinism under shuffled keys/deals', () => {
     let checked = 0
     for (const q of sample) {
       for (const objective of OBJECTIVES) {
-        const canonical = solve(q.slot, q.keys, DEALS, objective)
+        const canonical = solve(q.slot, q.keys, DEALS, objective, RULES)
         for (const seed of [1, 2]) {
           const shuffledDeals = shuffled(DEALS, seed + 1000)
           const shuffledKeys = shuffled(q.keys, seed + 2000)
-          const got = solve(q.slot, shuffledKeys, shuffledDeals, objective)
+          const got = solve(q.slot, shuffledKeys, shuffledDeals, objective, RULES)
           expect(got).toEqual(canonical)
           checked++
         }
@@ -185,7 +188,7 @@ describe('determinism under shuffled keys/deals', () => {
 
 describe('pinned case: nuggets+soda under min_price', () => {
   it('returns the cheap sweetheart coupon, not a meal-gift bundle', () => {
-    const r = solve('regular', ['nuggets', 'soda'], DEALS, 'min_price')
+    const r = solve('regular', ['nuggets', 'soda'], DEALS, 'min_price', RULES)
     expect(r.priceFrom).toBe(48)
     expect(r.savingsFrom).toBe(38)
     expect(r.itemCount).toBe(2)
@@ -209,10 +212,10 @@ describe('pinned case: nuggets+soda under min_price', () => {
 // ---------------------------------------------------------------------------
 
 describe('uncovered-combo counts', () => {
-  // 早餐含 bagel/egg_burger/filet/mcchicken/muffin/pancake 中任 4 個以上
-  // （只有 3 張早餐套餐基礎券、每張蓋一個主餐）的組合蓋不齊。組合數學手算
-  // 見 tests/test_lookup.py 同名測試：555+54+1=610。
-  it('breakfast has exactly 610 combos with non-empty uncovered; regular has none', async () => {
+  // 2026-11-03 起套餐券不限張數：每個按鍵在自己的時段都至少有一張券，
+  // 所以任何組合都不會有按鍵沒券可用（見 tests/test_lookup.py
+  // test_every_pressed_button_gets_a_coupon）。
+  it('no combo leaves a pressed button without a coupon', async () => {
     const queries = allQueries()
     let n = 0
     for (const objective of OBJECTIVES) {
@@ -220,16 +223,16 @@ describe('uncovered-combo counts', () => {
       let regularUncovered = 0
       for (const q of queries) {
         if (n++ % 1000 === 0) await yieldNow()
-        const r = solve(q.slot, q.keys, DEALS, objective)
+        const r = solve(q.slot, q.keys, DEALS, objective, RULES)
         if (r.uncovered.length > 0) {
           if (q.slot === 'breakfast') breakfastUncovered++
           else regularUncovered++
         }
       }
-      expect(breakfastUncovered).toBe(610)
+      expect(breakfastUncovered).toBe(0)
       expect(regularUncovered).toBe(0)
     }
-  }, 60_000)
+  }, 300_000)
 })
 
 // ---------------------------------------------------------------------------

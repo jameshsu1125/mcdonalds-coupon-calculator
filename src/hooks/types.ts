@@ -88,6 +88,7 @@ export interface McdData {
   validTo: string
   defaultObjective: Objective
   mealSavingsBasis: MealSavingsBasis
+  couponRules: { irredundant: boolean; one_per_base_coupon: boolean; prefer_diverse_gifts: boolean }
   buttons: Array<{
     id: string
     label: string

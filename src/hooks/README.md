@@ -155,7 +155,7 @@ const result = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_sa
 | | `filet` | 麥香魚 | 52 | 92 |
 | | `hashbrown` | 薯餅 | 37 | 37 |
 | 第 3 列 | `soda` | 汽水 | 33 | 38 |
-| | `mccafe` | McCafe | 50 | 87 |
+| | `mccafe` | McCafé | 50 | 87 |
 | | `tea` | 茶飲 | 33 | 68 |
 | | `corn_soup` | 玉米湯 | 48 | 58 |
 | 第 4 列 | （切換時段） | | | |
@@ -176,7 +176,7 @@ const result = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_sa
 | | `fries` | 薯條 | 40 | 66 |
 | | `apple_pie` | 蘋果派 | 40 | 40 |
 | 第 3 列 | `soda` | 汽水 | 33 | 38 |
-| | `mccafe` | McCafe | 50 | 87 |
+| | `mccafe` | McCafé | 50 | 87 |
 | | `tea` | 茶飲 | 33 | 68 |
 | | `corn_soup` | 玉米湯 | 48 | 58 |
 | 第 4 列 | （切換時段） | | | |
@@ -190,7 +190,7 @@ const result = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_sa
 
 ### 3.1.1 按鍵分類 `categories`
 
-每個按鍵有一到兩個分類，按鍵底下的每個品項都沿用同一組分類（設定在 `v2/config.json` 的 `button_categories`，依客戶 2026-10-24 的分類圖）。客戶畫面上的用語：
+每個按鍵有一到兩個分類（目前只有麥克鷄塊、麥脆鷄腿、勁辣香鷄翅是兩個），按鍵底下的每個品項都沿用同一組分類（設定在 `v2/config.json` 的 `button_categories`，依客戶 2026-10-24 的分類圖）。客戶畫面上的用語：
 
 | `categories` 的值 | 客戶用語 |
 |---|---|
@@ -204,8 +204,8 @@ const result = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_sa
 | 滿福堡系列、蛋堡系列、麥香鷄、麥香魚、牛肉類漢堡、鷄肉類漢堡 | `['肉類']` |
 | 麥克鷄塊、麥脆鷄腿、勁辣香鷄翅 | `['炸物', '肉類']` |
 | 薯餅、薯條 | `['炸物']` |
-| 鬆餅系列、焙果系列、汽水、玉米湯、蛋捲冰淇淋、冰炫風、蘋果派 | `['湯／甜點／飲料']` |
-| McCafe、茶飲 | `['湯／甜點／飲料', '咖啡／茶']` |
+| 鬆餅系列、焙果系列、汽水、茶飲、玉米湯、蛋捲冰淇淋、冰炫風、蘋果派 | `['湯／甜點／飲料']` |
+| McCafé | `['咖啡／茶']` |
 
 `d.buttons` 的每個按鍵、`deal.products` 的每份商品都有 `categories` 陣列，順序照客戶圖上由上而下。只有沒有按鍵的四季沙拉是 `['none']`。
 
@@ -302,7 +302,7 @@ interface McdResult {
   savingsFrom: number    // 一共省多少（各張券的 savingsMin 加總）
   priceFrom: number      // 一共付多少（各張券的 priceMin 加總）
   itemCount: number      // 一共拿到幾樣商品（各張券的 itemCount 加總）
-  deals: McdDeal[]       // 用到的券（可能重複，見下方說明）
+  deals: McdDeal[]       // 用到的券（每張都有自己負責的按鍵，見 §10.1）
   uncovered: McdButton[] // 按了但沒有券可用的按鍵，要原價單點
   hints: McdDeal[]       // 額外提示（滿額送），不參與計算
 }
@@ -313,14 +313,14 @@ interface McdResult {
 | `savingsFrom` | 畫面上的「省 $X 起」。等於 `deals.reduce((s, d) => s + d.savingsMin, 0)`。之所以是「起」，是因為一個按鍵代表一整類商品，每張券都取最保守的算法，見 §10.3。 |
 | `priceFrom` | 「付 $X 起」。等於 `deals.reduce((s, d) => s + d.priceMin, 0)`，也就是每張券都點最便宜的品項。**不包含** `uncovered` 那些要原價單點的按鍵。 |
 | `itemCount` | 「至少拿到 X 樣」。等於 `deals.reduce((s, d) => s + d.itemCount, 0)`，會比按下的按鍵數多（例如套餐券一張就有 3～5 樣）。 |
-| `deals` | 用到的券。**同一張券可能出現兩次以上**（星級點、甜心卡可以重複用），要逐筆顯示，不要去重。順序沒有特別意義。 |
+| `deals` | 用到的券。照目前的規則，每張券都有「只有它蓋到」的按鍵，同一張券不會重複出現（§10.1）。順序沒有特別意義。 |
 | `uncovered` | 沒有任何券可用的按鍵。空陣列就代表每個按鍵都有券可用。 |
 | `hints` | 目前時段可以參考的「滿額送」券（例如「滿$300送6塊鷄塊」）。**不管選了什麼都會出現**，跟這次的計算無關，只是提示。 |
 
 ### 6.1 按下的按鍵和 `deals[].covers` 的關係
 
 - 每個按下的按鍵一定會出現在某張券的 `covers`，或者出現在 `uncovered`。
-- 一張券的 `covers` 可以**包含使用者沒按的按鍵**。例如「買汽水送McCafe」會蓋到 `soda` 和 `mccafe`，就算使用者沒按 McCafe，系統也可能選這張券，因為它的 McCafe 是送的。
+- 一張券的 `covers` 可以**包含使用者沒按的按鍵**。例如「買汽水送McCafé」會蓋到 `soda` 和 `mccafe`，就算使用者沒按 McCafé，系統也可能選這張券，因為它的 McCafé 是送的。
 
 ---
 
@@ -343,16 +343,16 @@ interface McdDeal {
 
 ### 7.1 `source`：券的種類
 
-| `source` | 名稱 | 原價怎麼算 | 實付 | 省多少 | 同一張能重複用嗎 |
+| `source` | 名稱 | 原價怎麼算 | 實付 | 省多少 |
 |---|---|---|---|---|---|
-| `star` | 1+1 星級點 | 紅區單點＋白區單點 | combo 價 | 原價 − combo 價 | ✅ 可以 |
-| `sweetheart` | 數位甜心卡 | A 區＋B 區 | A 區原價 | B 區（送的那樣）的原價 | ✅ 可以 |
-| `bogo` | 買一送一 | 兩份 | 一份 | 一份的價格 | ❌ 不行 |
-| `meal_gift` | 買套餐送X | 套餐價＋贈品（`set_meal`） | 套餐價（含飲料加價） | 贈品的原價 | ❌ 同一種券只能用一張 |
-| `spend` | 滿額送 | — | — | 0，只會出現在 `hints` | — |
+| `star` | 1+1 星級點 | 紅區單點＋白區單點 | combo 價 | 原價 − combo 價 |
+| `sweetheart` | 數位甜心卡 | A 區＋B 區 | A 區原價 | B 區（送的那樣）的原價 |
+| `bogo` | 買一送一 | 兩份 | 一份 | 一份的價格 |
+| `meal_gift` | 買套餐送X | 套餐價＋贈品（`set_meal`） | 套餐價（含飲料加價） | 贈品的原價 |
+| `spend` | 滿額送 | — | — | 0，只會出現在 `hints` |
 
 - **星級點只能用在午晚餐**。早餐的結果不會出現 `star`。
-- **`meal_gift` 是同一種券的不同點法**：例如「買超值全餐送中薯」展開成 100 種點法（主餐 × 配餐 × 飲料），但一次結果裡同一種只能用一張。
+- **`meal_gift` 是同一種券的不同點法**：例如「買超值全餐送中薯」展開成 100 種點法（主餐 × 配餐 × 飲料），一次結果裡可以用好幾張同一種券（各配不同主餐），見 §10.1 規則 3。
 
 ### 7.2 `priceMin` / `priceMax`
 
@@ -377,7 +377,7 @@ interface McdDealProduct {
 |---|---|
 | 買超值全餐送中薯（A經典配餐＋汽水），主餐牛肉類漢堡 | 主餐 `beef_burger`、配餐 `fries`、飲料 `soda`、贈品 `fries` |
 | 單點勁辣香鷄翅(一份兩塊)買一送一 | 買 `spicy_wings`、送 `spicy_wings` |
-| 買汽水送McCafe | A區 `soda`、B區（送） `mccafe` |
+| 買汽水送McCafé | A區 `soda`、B區（送） `mccafe` |
 
 | `source` | `role` 依序是 |
 |---|---|
@@ -453,155 +453,402 @@ d.toggle('beef_burger'); d.toggle('fries'); d.toggle('soda')
 d.result
 ```
 
+（為了篇幅，每張券的 `products` 省略不列，格式見 §7.3。）
+
 ```json
 {
-  "savingsFrom": 150,
+  "savingsFrom": 148,
   "itemCount": 8,
-  "priceFrom": 218,
+  "priceFrom": 251,
   "deals": [
     {
-      "id": "meal-274",
-      "title": "買超值全餐送中薯（A經典配餐＋汽水）",
+      "id": "meal-395",
+      "title": "買超值全餐送4塊麥克鷄塊（B清爽配餐＋茶飲）",
       "source": "meal_gift",
-      "covers": ["beef_burger", "fries", "soda"],
-      "priceMin": 142,
-      "priceMax": 202,
-      "savingsMin": 50,
+      "covers": [
+        "beef_burger",
+        "nuggets",
+        "tea"
+      ],
+      "priceMin": 147,
+      "priceMax": 237,
+      "savingsMin": 48,
       "itemCount": 4,
       "breakdown": {
         "items": [
-          { "role": "套餐", "name": "雙層牛肉吉事堡 A經典配餐＋可口可樂(中)", "price": 142 },
-          { "role": "贈品", "name": "薯條(中)", "price": 50 }
+          {
+            "role": "套餐",
+            "name": "雙層牛肉吉事堡 B清爽配餐＋熱紅茶",
+            "price": 147
+          },
+          {
+            "role": "贈品",
+            "name": "麥克鷄塊(4塊)",
+            "price": 48
+          }
         ],
-        "paid": 142
+        "paid": 147
       }
     },
     {
       "id": "sweet-09",
-      "title": "買汽水送McCafe",
+      "title": "買汽水送McCafé",
       "source": "sweetheart",
-      "covers": ["soda", "mccafe"],
+      "covers": [
+        "soda",
+        "mccafe"
+      ],
       "priceMin": 38,
       "priceMax": 38,
       "savingsMin": 50,
       "itemCount": 2,
       "breakdown": {
         "items": [
-          { "role": "A區", "name": "可口可樂(中)", "price": 38 },
-          { "role": "B區（送）", "name": "冰經典美式咖啡", "price": 50 }
+          {
+            "role": "A區",
+            "name": "可口可樂(中)",
+            "price": 38
+          },
+          {
+            "role": "B區（送）",
+            "name": "冰經典美式咖啡",
+            "price": 50
+          }
         ],
         "paid": 38
       }
     },
     {
-      "id": "sweet-09",
-      "title": "買汽水送McCafe",
+      "id": "sweet-27",
+      "title": "買薯條送McCafé",
       "source": "sweetheart",
-      "covers": ["soda", "mccafe"],
-      "priceMin": 38,
-      "priceMax": 38,
+      "covers": [
+        "fries",
+        "mccafe"
+      ],
+      "priceMin": 66,
+      "priceMax": 66,
       "savingsMin": 50,
       "itemCount": 2,
       "breakdown": {
         "items": [
-          { "role": "A區", "name": "可口可樂(中)", "price": 38 },
-          { "role": "B區（送）", "name": "冰經典美式咖啡", "price": 50 }
+          {
+            "role": "A區",
+            "name": "薯條(大)",
+            "price": 66
+          },
+          {
+            "role": "B區（送）",
+            "name": "冰經典美式咖啡",
+            "price": 50
+          }
         ],
-        "paid": 38
+        "paid": 66
       }
     }
   ],
   "uncovered": [],
   "hints": [
-    { "id": "spend-01", "title": "滿$300送6塊鷄塊(歡樂送限定)", "source": "spend", "covers": [],
-      "priceMin": 300, "priceMax": 300, "savingsMin": 0, "itemCount": 1, "breakdown": null },
-    { "id": "spend-02", "title": "滿$150送4塊鷄塊(手機點餐限定)", "source": "spend", "covers": [],
-      "priceMin": 150, "priceMax": 150, "savingsMin": 0, "itemCount": 1, "breakdown": null }
+    {
+      "id": "spend-01",
+      "title": "滿$300送6塊鷄塊(歡樂送限定)",
+      "source": "spend",
+      "covers": [],
+      "priceMin": 300,
+      "priceMax": 300,
+      "savingsMin": 0,
+      "itemCount": 1,
+      "breakdown": null,
+      "products": []
+    },
+    {
+      "id": "spend-02",
+      "title": "滿$150送4塊鷄塊(手機點餐限定)",
+      "source": "spend",
+      "covers": [],
+      "priceMin": 150,
+      "priceMax": 150,
+      "savingsMin": 0,
+      "itemCount": 1,
+      "breakdown": null,
+      "products": []
+    }
   ]
 }
 ```
 
 從這個例子可以看到：
 
-- `sweet-09` 出現**兩次**（甜心卡可以重複用），`savingsFrom` 150 ＝ 50 ＋ 50 ＋ 50。
-- 使用者沒按 McCafe，但結果裡有 McCafe，因為「買汽水送McCafe」送的就是它。
-- 「省最多」會為了衝省額多疊券：這裡用了 3 張券、付 218 元，拿到 8 樣。
+- 3 張券**各自負責一個按鍵**：套餐券負責牛肉類漢堡、「買汽水送McCafé」負責汽水、「買薯條送McCafé」負責薯條。拿掉任何一張，就會有按鍵沒券可用（§10.1 規則 2）。
+- 套餐券裡的茶飲、贈品鷄塊、甜心卡送的 McCafé 都不是使用者按的，是券帶出來的商品。
+- 「省最多」在符合規則的組合裡挑省最多的：這裡 3 張券合計省 148，比用一張套餐把三個按鍵一次蓋完更多。
 
-### 9.2 早餐：滿福堡＋麥香鷄＋鬆餅＋焙果，排序「省最多」（有按鍵沒券可用）
+### 9.2 早餐：滿福堡＋麥香鷄＋鬆餅＋焙果，排序「省最多」
 
 ```json
 {
-  "savingsFrom": 133,
-  "itemCount": 9,
-  "priceFrom": 230,
+  "savingsFrom": 192,
+  "itemCount": 12,
+  "priceFrom": 312,
   "deals": [
     {
-      "id": "meal-064",
-      "title": "買早餐套餐送薯餅（D指定飲料配餐＋汽水）",
-      "source": "meal_gift",
-      "covers": ["bagel", "hashbrown", "soda"],
-      "priceMin": 82, "priceMax": 116, "savingsMin": 37, "itemCount": 3,
-      "breakdown": {
-        "items": [
-          { "role": "套餐", "name": "現烤焙果 D指定飲料配餐＋可口可樂(中)", "price": 82 },
-          { "role": "贈品", "name": "薯餅", "price": 37 }
-        ],
-        "paid": 82
-      }
-    },
-    {
-      "id": "meal-167",
+      "id": "meal-155",
       "title": "買早餐套餐送4塊麥克鷄塊（D指定飲料配餐＋汽水）",
       "source": "meal_gift",
-      "covers": ["mcchicken", "nuggets", "soda"],
-      "priceMin": 73, "priceMax": 73, "savingsMin": 48, "itemCount": 3,
+      "covers": [
+        "bagel",
+        "nuggets",
+        "soda"
+      ],
+      "priceMin": 82,
+      "priceMax": 116,
+      "savingsMin": 48,
+      "itemCount": 3,
       "breakdown": {
         "items": [
-          { "role": "套餐", "name": "麥香鷄 D指定飲料配餐＋可口可樂(中)", "price": 73 },
-          { "role": "贈品", "name": "麥克鷄塊(4塊)", "price": 48 }
+          {
+            "role": "套餐",
+            "name": "現烤焙果 D指定飲料配餐＋可口可樂(中)",
+            "price": 82
+          },
+          {
+            "role": "贈品",
+            "name": "麥克鷄塊(4塊)",
+            "price": 48
+          }
         ],
-        "paid": 73
-      }
+        "paid": 82
+      },
+      "products": [
+        {
+          "role": "主餐",
+          "name": "現烤焙果",
+          "button": "bagel",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "飲料",
+          "name": "可口可樂(中)",
+          "button": "soda",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "贈品",
+          "name": "麥克鷄塊(4塊)",
+          "button": "nuggets",
+          "categories": [
+            "炸物",
+            "肉類"
+          ]
+        }
+      ]
     },
     {
-      "id": "meal-262",
-      "title": "買早餐套餐送小玉米湯（D指定飲料配餐＋汽水）",
+      "id": "meal-171",
+      "title": "買早餐套餐送4塊麥克鷄塊（D指定飲料配餐＋汽水）",
       "source": "meal_gift",
-      "covers": ["corn_soup", "muffin", "soda"],
-      "priceMin": 75, "priceMax": 130, "savingsMin": 48, "itemCount": 3,
+      "covers": [
+        "muffin",
+        "nuggets",
+        "soda"
+      ],
+      "priceMin": 75,
+      "priceMax": 130,
+      "savingsMin": 48,
+      "itemCount": 3,
       "breakdown": {
         "items": [
-          { "role": "套餐", "name": "豬肉滿福堡 D指定飲料配餐＋可口可樂(中)", "price": 75 },
-          { "role": "贈品", "name": "玉米湯(小)", "price": 48 }
+          {
+            "role": "套餐",
+            "name": "豬肉滿福堡 D指定飲料配餐＋可口可樂(中)",
+            "price": 75
+          },
+          {
+            "role": "贈品",
+            "name": "麥克鷄塊(4塊)",
+            "price": 48
+          }
         ],
         "paid": 75
-      }
+      },
+      "products": [
+        {
+          "role": "主餐",
+          "name": "豬肉滿福堡",
+          "button": "muffin",
+          "categories": [
+            "肉類"
+          ]
+        },
+        {
+          "role": "飲料",
+          "name": "可口可樂(中)",
+          "button": "soda",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "贈品",
+          "name": "麥克鷄塊(4塊)",
+          "button": "nuggets",
+          "categories": [
+            "炸物",
+            "肉類"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "meal-258",
+      "title": "買早餐套餐送小玉米湯（D指定飲料配餐＋汽水）",
+      "source": "meal_gift",
+      "covers": [
+        "corn_soup",
+        "mcchicken",
+        "soda"
+      ],
+      "priceMin": 73,
+      "priceMax": 73,
+      "savingsMin": 48,
+      "itemCount": 3,
+      "breakdown": {
+        "items": [
+          {
+            "role": "套餐",
+            "name": "麥香鷄 D指定飲料配餐＋可口可樂(中)",
+            "price": 73
+          },
+          {
+            "role": "贈品",
+            "name": "玉米湯(小)",
+            "price": 48
+          }
+        ],
+        "paid": 73
+      },
+      "products": [
+        {
+          "role": "主餐",
+          "name": "麥香鷄",
+          "button": "mcchicken",
+          "categories": [
+            "肉類"
+          ]
+        },
+        {
+          "role": "飲料",
+          "name": "可口可樂(中)",
+          "button": "soda",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "贈品",
+          "name": "玉米湯(小)",
+          "button": "corn_soup",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "meal-270",
+      "title": "買早餐套餐送小玉米湯（D指定飲料配餐＋汽水）",
+      "source": "meal_gift",
+      "covers": [
+        "corn_soup",
+        "pancake",
+        "soda"
+      ],
+      "priceMin": 82,
+      "priceMax": 136,
+      "savingsMin": 48,
+      "itemCount": 3,
+      "breakdown": {
+        "items": [
+          {
+            "role": "套餐",
+            "name": "鬆餅(3片) D指定飲料配餐＋可口可樂(中)",
+            "price": 82
+          },
+          {
+            "role": "贈品",
+            "name": "玉米湯(小)",
+            "price": 48
+          }
+        ],
+        "paid": 82
+      },
+      "products": [
+        {
+          "role": "主餐",
+          "name": "鬆餅(3片)",
+          "button": "pancake",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "飲料",
+          "name": "可口可樂(中)",
+          "button": "soda",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        },
+        {
+          "role": "贈品",
+          "name": "玉米湯(小)",
+          "button": "corn_soup",
+          "categories": [
+            "湯／甜點／飲料"
+          ]
+        }
+      ]
     }
   ],
-  "uncovered": [
-    { "id": "pancake", "label": "鬆餅系列", "priceMin": 57, "priceMax": 111 }
-  ],
+  "uncovered": [],
   "hints": [
-    { "id": "spend-01", "title": "滿$300送6塊鷄塊(歡樂送限定)", "source": "spend", "covers": [],
-      "priceMin": 300, "priceMax": 300, "savingsMin": 0, "itemCount": 1, "breakdown": null }
+    {
+      "id": "spend-01",
+      "title": "滿$300送6塊鷄塊(歡樂送限定)",
+      "source": "spend",
+      "covers": [],
+      "priceMin": 300,
+      "priceMax": 300,
+      "savingsMin": 0,
+      "itemCount": 1,
+      "breakdown": null,
+      "products": []
+    }
   ]
 }
 ```
 
-為什麼鬆餅沒有券可用？這四個早餐主餐都只能靠「買早餐套餐送X」，而這種券只有 3 種（送薯餅／送4塊鷄塊／送小玉米湯），每種只能用一張、每張只搭一個主餐，所以四個主餐裡一定有一個用不到券（見 §10.4）。
-
-另外，早餐的 `hints` 只有 `spend-01`，因為 `spend-02` 只限午晚餐。
-
----
+4 個主餐各配一張套餐券——同一種套餐券不限張數（§10.1 規則 3），所以 4 個主餐都有券可用。送4塊麥克鷄塊和送小玉米湯都省 48、價格也一樣，所以兩種各用 2 張，送的品項不會全部一樣（§10.1 規則 4）。
 
 ## 10. 計算規則
 
-### 10.1 疊券規則（客戶裁示）
+### 10.1 選券規則（2026-11-03 起，`v2/config.json` 的 `coupon_rules`）
 
-1. **鋪底券（`bogo`、`meal_gift`）同一張不能用兩次**，不同張可以一起用。`meal_gift` 是看券的種類，例如「買超值全餐送中薯」不管配什麼，一次只能用一張。
-2. **星級點（`star`）、甜心卡（`sweetheart`）同一張可以重複用。**
-3. **用券的總張數不超過按下的按鍵數**（包含重複使用的）。
-4. **星級點只能用在午晚餐。**
+1. **（最優先）每張券至少要包含一個使用者按的品項。** 跟使用者選的東西完全無關的券不會出現。
+2. **不能為了省更多硬塞券。** 選出來的每一張券，都要有「只有它蓋到」的按鍵——拿掉任何一張，就會有按鍵變成沒券可用。所以：
+   - 同一張券不會重複出現；
+   - 用券張數一定不超過按鍵數。
+3. **同一種套餐券、買一送一不限張數**（`one_per_base_coupon: false`）。例如早餐同時按 5 個主餐，可以用 5 張「買早餐套餐送小玉米湯」，各配不同主餐。
+4. **送的品項儘量不一樣**（`prefer_diverse_gifts: true`）。省額相同的幾種選法裡，挑「送的品項」種類最多、次數最平均的那個，每種都用過才重複。「送的品項」是套餐贈品、甜心卡 B 區、買一送一送的那份。**不會為了多樣而少省**：例如早餐 6 個主餐，送4塊麥克鷄塊和送小玉米湯都省 48，結果各 3 張；送薯餅只省 37，所以不會出現。做法是先照規則 1～3 選出省最多的券，再把每張券換成「蓋到的按鍵一樣、省額一樣、價格也一樣」的另一種券，所以省額、價格、張數都不變。
+5. **星級點只能用在午晚餐。**
+
+排名順序：蓋到的按鍵最多 → 省最多 → 券最少 → 付最少，最後再換成送的品項最多樣的同省額券。
+
+`hook` 會把 `data.json` 的 `couponRules` 傳給 `solve()`。`prefer_diverse_gifts` 設成 `false` 就不管送的品項重不重複。把 `irredundant` 設回 `false`、`one_per_base_coupon` 設回 `true`，就是 11/03 以前的舊規則（同一張甜心卡／星級點可重複、套餐券每種一張、張數上限是按鍵數）。
 
 ### 10.2 「買套餐送X」的省額：`mealSavingsBasis`
 
@@ -623,13 +870,9 @@ d.result
 
 `set_meal` 底下套餐券省的錢固定（就是贈品價），所以只有星級點會因為點的品項不同而省得不一樣。
 
-### 10.4 早餐哪些組合一定有按鍵沒券可用
+### 10.4 會不會有按鍵沒券可用
 
-早餐的 `muffin`、`pancake`、`bagel`、`egg_burger`、`mcchicken`、`filet` 這 6 個主餐，**只能靠「買早餐套餐送X」**，而這種券只有 3 種。所以同時選 **4 個以上** 這些主餐，就一定有按鍵會出現在 `uncovered`。
-
-除此之外，早餐任選 2～6 個都能每個按鍵都有券可用；午晚餐任何組合也都可以。
-
----
+照目前的設定（同一種套餐券不限張數），**任何組合都不會有按鍵沒券可用**：每個按鍵在它出現的時段都至少有一張券，每個按下的按鍵都能各自配一張。`uncovered` 欄位仍然保留，萬一之後資料或規則改變（例如把 `one_per_base_coupon` 設回 `true`），沒券可用的按鍵會列在這裡。
 
 ## 11. 三種排序 `objective`
 
@@ -649,7 +892,7 @@ d.result
 
 ## 12. 常見陷阱
 
-1. **`deals` 不要去重，也不要拿 `deal.id` 當 React key。** 同一張券可能出現兩次以上，去重之後畫面上的省額加總會跟 `savingsFrom` 對不上，用 id 當 key 也會撞。請用陣列 index：`deals.map((d, i) => <li key={i}>…)`。
+1. **不要拿 `deal.id` 當 React key。** 目前的規則下同一張券不會重複，但同一種套餐券可以有好幾張（不同花色 id 不同）；如果之後把規則切回舊版（`coupon_rules`），同一個 id 就可能重複出現。用陣列 index 最保險：`deals.map((d, i) => <li key={i}>…)`。
 2. **`toggle` 傳的是 `id`（`'muffin'`），不是 `label`（`'滿福堡系列'`）。** 傳錯不會報錯，只會沒反應（`solveMcdDeal` 則會直接 throw）。
 3. **切換時段會清空選取**。如果畫面有「已送出」的狀態，記得一起重設。
 4. **`result` 在選取改變時會立刻重算**，「按 Enter 才顯示」要自己控制（見 §2）。

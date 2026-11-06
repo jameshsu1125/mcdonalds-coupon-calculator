@@ -116,11 +116,13 @@ describe('useMcdDeal', () => {
     expect(result.current.result!.savingsFrom).toBeLessThanOrEqual(high)
   })
 
-  it('reports uncovered buttons for the four breakfast meal-only keys', () => {
+  it('covers all four breakfast meal-only keys now that meal coupons are unlimited', () => {
+    // 2026-11-03 起同一種套餐券不限張數（coupon_rules），以前這 4 個主餐
+    // 只有 3 張套餐券可用、一定有一個沒券可用；現在每個都能各配一張。
     const { result } = renderHook(() => useMcdDeal({ timeSlot: 'breakfast' }))
     ;['muffin', 'mcchicken', 'pancake', 'bagel'].forEach(k =>
       act(() => { result.current.toggle(k) }))
-    expect(result.current.result!.uncovered).toHaveLength(1)
+    expect(result.current.result!.uncovered).toHaveLength(0)
   })
 
   it('always exposes the spend-threshold hints', () => {
@@ -135,22 +137,25 @@ describe('useMcdDeal', () => {
   // （breakfast: apple_pie, bagel, cone, mcchicken, muffin, pancake，
   //  max_savings 的 d 含兩次 star-11），確認 hook 輸出的 deals 陣列
   // 保留重複，而不是被 Set/Map 去重掉。
-  it('keeps repeated deal ids as a multiset, not deduplicated', () => {
-    // 原本用早餐 star-11 重複兩次；星級點改成只限午晚餐後換成這組：
-    // 午晚餐 sweet-09（買汽水送McCafe，甜心卡可重複兌換）出現兩次。
+  it('every coupon includes a pressed item and covers a button no other coupon covers', () => {
+    // 2026-11-03 James 的選券規則（coupon_rules.irredundant）：
+    // 1. 每張券至少包含一個使用者按的品項；
+    // 2. 不能為了省更多硬塞券——每張券都要有只有它蓋到的按鍵，
+    //    所以同一張券也不會重複出現。
+    const keys = ['beef_burger', 'filet', 'fries', 'mccrispy', 'soda', 'tea']
     const { result } = renderHook(() => useMcdDeal({ timeSlot: 'regular', objective: 'max_savings' }))
-    ;['beef_burger', 'filet', 'fries', 'mccrispy', 'soda', 'tea'].forEach(k =>
-      act(() => { result.current.toggle(k) }))
-
-    expect(result.current.canSubmit).toBe(true)
+    keys.forEach(k => act(() => { result.current.toggle(k) }))
     const r = result.current.result!
+    const pressed = new Set(keys)
+    const own = r.deals.map(d => new Set(d.covers.filter(c => pressed.has(c))))
+    own.forEach((mine, i) => {
+      expect(mine.size).toBeGreaterThan(0)
+      const others = new Set(own.filter((_, j) => j !== i).flatMap(s => [...s]))
+      expect([...mine].some(c => !others.has(c))).toBe(true)
+    })
+    expect(new Set(r.deals.map(d => d.id)).size).toBe(r.deals.length)
 
-    // 6 張券（含重複），不是去重後的 5 張
-    expect(r.deals).toHaveLength(6)
-    // 重複幾次取決於省額資料，要驗的只是有重複、沒被去重
-    expect(r.deals.filter(d => d.id === 'sweet-09').length).toBeGreaterThanOrEqual(2)
-
-    // 逐一加總應該等於卡片上的總數（含重複才會對得上）
+    // 逐一加總應該等於卡片上的總數
     expect(r.deals.reduce((acc, d) => acc + d.savingsMin, 0)).toBe(r.savingsFrom)
     expect(r.deals.reduce((acc, d) => acc + d.itemCount, 0)).toBe(r.itemCount)
     expect(r.deals.reduce((acc, d) => acc + d.priceMin, 0)).toBe(r.priceFrom)
@@ -246,10 +251,10 @@ describe('McdDeal.products', () => {
       const buttons = new Set(d.products.map(p => p.button).filter(Boolean))
       expect(buttons).toEqual(new Set(d.covers))
     }
+    // 套餐券的 products 依序是 主餐、配餐(0~2)、飲料(可能沒有)、贈品
     const meal = r.deals.find(d => d.source === 'meal_gift')!
-    expect(meal.products.map(p => [p.role, p.button])).toEqual([
-      ['主餐', 'beef_burger'], ['配餐', 'fries'], ['飲料', 'soda'], ['贈品', 'fries'],
-    ])
+    expect(meal.products[0]).toMatchObject({ role: '主餐', button: 'beef_burger' })
+    expect(meal.products[meal.products.length - 1].role).toBe('贈品')
   })
 })
 
@@ -260,15 +265,20 @@ describe('category', () => {
     expect(byId.muffin).toEqual(['肉類'])
     expect(byId.hashbrown).toEqual(['炸物'])
     expect(byId.nuggets).toEqual(['炸物', '肉類'])
-    expect(byId.tea).toEqual(['湯／甜點／飲料', '咖啡／茶'])
+    expect(byId.tea).toEqual(['湯／甜點／飲料'])
+    expect(byId.mccafe).toEqual(['咖啡／茶'])
     expect(byId.egg_burger).toEqual(['肉類'])
   })
 
   it('every deal product carries its button category', () => {
     const r = solveMcdDeal('regular', ['beef_burger', 'fries', 'soda'], 'max_savings')!
-    const meal = r.deals.find(d => d.source === 'meal_gift')!
-    expect(meal.products.map(p => p.categories)).toEqual([
-      ['肉類'], ['炸物'], ['湯／甜點／飲料'], ['炸物'],
-    ])
+    // 每份商品的分類 = 它所屬按鍵的分類；沒有按鍵的（四季沙拉）是 ['none']
+    const { result } = renderHook(() => useMcdDeal({ timeSlot: 'regular' }))
+    const catOf = new Map(result.current.buttons.map(b => [b.id, b.categories]))
+    for (const d of r.deals) {
+      for (const p of d.products) {
+        expect(p.categories).toEqual(p.button ? catOf.get(p.button) : ['none'])
+      }
+    }
   })
 })
